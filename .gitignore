@@ -1,0 +1,15 @@
+# Build files
+Debug/
+x64/
+*.exe
+*.obj
+*.pdb
+*.ilk
+*.sln
+*.vcxproj*
+*.user
+
+# CMake temp files
+CMakeCache.txt
+CMakeFiles/
+Makefile
