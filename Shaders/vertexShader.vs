@@ -10,7 +10,7 @@ uniform mat4 view;
 uniform mat4 projection;
 
 vec3 top = vec3(0.0, 0.3, 0.0);
-vec3 bottom = vec3(0.0, 0.6, 0.0);
+vec3 bottom = vec3(0.0, 0.5, 0.0);
 
 void main()
 {
