@@ -5,26 +5,25 @@
 #include <vector>
 #include "Shaders.hpp"
 #include "textureLoad.hpp"
+#include "perlin.hpp"
+#include "utils.hpp"
+#include "Camera.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
+
 
 // Window
 int height = 800;
 int width = 1200;
 
 // Camera
-glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
-glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
-glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
-
-float pitch = 0.0f;
-float yaw = -90.0f;
-float roll = 0.0f;
-
-float lastX = static_cast<float>(width) / 2;
-float lastY = static_cast<float>(height) / 2;
+Camera camera;
 
 // Timing
 float deltaTime = 0.0f;
@@ -34,53 +33,23 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
 }
 
-void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
-    float xfloat = static_cast<float>(xpos);
-    float yfloat = static_cast<float>(ypos);
+void processInput(GLFWwindow* window, Camera& camera) {
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, true);
 
-    float xoffset = xfloat - lastX;
-    float yoffset = lastY - yfloat;
+    int keys[] = {
+        GLFW_KEY_W, GLFW_KEY_S, GLFW_KEY_A, GLFW_KEY_D,
+        GLFW_KEY_SPACE, GLFW_KEY_LEFT_SHIFT,
+        GLFW_KEY_I, GLFW_KEY_K, GLFW_KEY_J, GLFW_KEY_L
+    };
 
-    lastX = xfloat;
-    lastY = yfloat;
-
-    const float sensitivity = 0.1f;
-
-    yaw += xoffset * sensitivity;
-    pitch += yoffset * sensitivity;
-
-    if (pitch > 89.0f)
-        pitch = 89.0f;
-    if (pitch < -89.0f)
-        pitch = -89.0f;
-
-    glm::vec3 direction;
-    direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-    direction.y = sin(glm::radians(pitch));
-    direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
-    cameraFront = glm::normalize(direction);
-};
-
-
-void processInput(GLFWwindow* window) {
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
-        glfwSetWindowShouldClose(window, GL_TRUE);
+    for (int key : keys) {
+        if (glfwGetKey(window, key) == GLFW_PRESS)
+            camera.ProcessKeyboard(key, deltaTime);
     }
-
-    const float cameraSpeed = 4.0f * deltaTime;
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-        cameraPos += cameraSpeed * cameraFront;
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-        cameraPos -= cameraSpeed * cameraFront;
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-        cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-        cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
-    if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
-        cameraPos -= cameraSpeed * cameraUp;
-    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
-        cameraPos += cameraSpeed * cameraUp;
 }
+
+bool wireframeMode = true;
 
 int main() {
 	glfwInit();
@@ -99,14 +68,26 @@ int main() {
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
     // Cursor management
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    glfwSetCursorPosCallback(window, mouse_callback);
+    // glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    // glfwSetCursorPosCallback(window, mouse_callback);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
         std::cout << "Failed to initialize GLAD" << std::endl;
         return -1;
     }
+
+    // Initiate ImGui
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+
+    // Setup Dear ImGui style
+    ImGui::StyleColorsDark();
+
+    // Setup Platform/Renderer bindings
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 330");
 
     // Build the shader program
     Shaders myShaders("Shaders/vertexShader.vs", "Shaders/fragmentShader.fs");
@@ -115,18 +96,20 @@ int main() {
 
     // ------------------------------------------------------------------------------------- //
 
-    std::vector<std::vector<float>> heightmap = {
-    {1.0f, 1.1f, 1.2f, 1.0f, 0.9f, 0.8f, 0.7f, 0.8f, 0.9f, 1.0f},
-    {1.1f, 1.3f, 1.4f, 1.2f, 1.0f, 0.9f, 0.8f, 0.7f, 0.8f, 1.0f},
-    {1.2f, 1.4f, 1.5f, 1.3f, 1.1f, 1.0f, 0.9f, 0.8f, 0.9f, 1.1f},
-    {1.0f, 1.2f, 1.3f, 1.1f, 0.9f, 0.8f, 0.7f, 0.8f, 0.9f, 1.0f},
-    {0.9f, 1.0f, 1.1f, 0.9f, 0.8f, 0.7f, 0.6f, 0.7f, 0.8f, 0.9f},
-    {0.8f, 0.9f, 1.0f, 0.8f, 0.7f, 0.6f, 0.5f, 0.6f, 0.7f, 0.8f},
-    {0.7f, 0.8f, 0.9f, 0.7f, 0.6f, 0.5f, 0.4f, 0.5f, 0.6f, 0.7f},
-    {0.8f, 0.9f, 1.0f, 0.8f, 0.7f, 0.6f, 0.5f, 0.6f, 0.7f, 0.8f},
-    {0.9f, 1.0f, 1.1f, 0.9f, 0.8f, 0.7f, 0.6f, 0.7f, 0.8f, 0.9f},
-    {1.0f, 1.1f, 1.2f, 1.0f, 0.9f, 0.8f, 0.7f, 0.8f, 0.9f, 1.0f}
-    };
+    const int sizes[2] = { SIZE, SIZE };
+    const int mesh_size[2] = { 10, 10 };
+
+    PerlinNoise perlin_noise(sizes, mesh_size);
+    float** rawHeightMap = perlin_noise.getGrid();
+    scaleArray(rawHeightMap, 0, 4, SIZE, SIZE);
+
+    std::vector<std::vector<float>> heightmap(SIZE, std::vector<float>(SIZE));
+
+    for (unsigned int i = 0; i < SIZE; ++i) {
+        for (unsigned int j = 0; j < SIZE; ++j) {
+            heightmap[i][j] = rawHeightMap[i][j];
+        }
+    }
 
     int mapwidth = heightmap[0].size();
     int mapdepth = heightmap.size();
@@ -197,8 +180,24 @@ int main() {
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
-        processInput(window);
+        processInput(window, camera);
 
+        // Start ImGui frame
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        // ImGui UI
+        ImGui::Begin("Settings");
+        if (ImGui::Checkbox("Wireframe", &wireframeMode)) {
+            glPolygonMode(GL_FRONT_AND_BACK, wireframeMode ? GL_LINE : GL_FILL);
+        }
+        ImGui::End();
+
+        // Rendering
+        ImGui::Render();
+
+        glViewport(0, 0, width, height);
         glClearColor(0.53f, 0.81f, 0.92f, 0.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -207,7 +206,7 @@ int main() {
         myShaders.use();
         float time = (float)glfwGetTime();
 
-        glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+        glm::mat4 view = glm::lookAt(camera.Position, camera.Position + camera.Front, camera.Up);
 
         glm::mat4 projection;
         projection = glm::perspective(glm::radians(45.0f), 1200.0f / 800.0f, 0.1f, 100.0f);
@@ -224,7 +223,10 @@ int main() {
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 
         glBindVertexArray(VAO);
+        glPolygonMode(GL_FRONT_AND_BACK, wireframeMode ? GL_LINE : GL_FILL);
         glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
+
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         glfwSwapBuffers(window);
         glfwPollEvents();
