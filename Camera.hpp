@@ -7,6 +7,8 @@ public:
     float Pitch, Yaw, Speed, Sensitivity;
 
     Camera();
+    Camera(float speed);
     void ProcessKeyboard(int key, float deltaTime);
     void UpdateDirection();
+    void SetSpeed(float speed);
 };

@@ -2,7 +2,7 @@
 #include <cmath>
 #include <iostream>
 #include <random>
-#define SIZE 50
+#include <vector>
 
 void fillArrayRandom(float myArray[SIZE][SIZE]) {
   for (int i = 0; i < SIZE; i++) {
@@ -12,23 +12,14 @@ void fillArrayRandom(float myArray[SIZE][SIZE]) {
   }
 }
 
-void printArray(float** myArray, int rows, int cols) {
-    for (int i = 0; i < rows; ++i) {
-        for (int j = 0; j < cols; ++j) {
-            std::cout << myArray[i][j] << " ";
-        }
-        std::cout << "\n";
-    }
-}
-
-void scaleArray(float **myArray, float low, float high, int rows, int cols) {
+void scaleMap(std::vector<std::vector<float>>& heightmap, float low, float high, int rows, int cols) {
     // Find min & max values of the current array
-    float minimum = myArray[0][0];
-    float maximum = myArray[0][0];
+    float minimum = heightmap[0][0];
+    float maximum = heightmap[0][0];
         
     for (int y = 0; y < rows; y++){
         for (int x = 0; x < cols; x++){
-            float current_value = myArray[y][x];
+            float current_value = heightmap[y][x];
             if (current_value > maximum) maximum = current_value;
             if (current_value < minimum) minimum = current_value;
         }
@@ -37,29 +28,9 @@ void scaleArray(float **myArray, float low, float high, int rows, int cols) {
     // Scale the values
     for (int y = 0; y < rows; y++){
         for (int x = 0; x < cols; x++){
-            myArray[y][x] = (((myArray[y][x]-minimum)*(high-low))/(maximum-minimum))+low;
+            heightmap[y][x] = (((heightmap[y][x]-minimum)*(high-low))/(maximum-minimum))+low;
         }
     }        
-}
-
-void randomUnitaryVector(float myVector[], unsigned int size) {
-  std::random_device rd;
-  std::mt19937 gen(rd());
-
-  std::uniform_real_distribution<> dis(0.0, 2 * 3.1415);
-
-  double randomAngle = dis(gen);
-
-  myVector[0] = cos(randomAngle);
-  myVector[1] = sin(randomAngle);
-}
-
-float dotProduct(float *u, float *v, unsigned int size) {
-  float result = 0;
-  for (int n = 0; n < size; n++) {
-    result += u[n] * v[n];
-  }
-  return result;
 }
 
 float smoothstep(float w) {

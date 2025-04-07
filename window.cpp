@@ -19,13 +19,16 @@
 
 
 // Camera
-Camera camera;
+float camSpeed = 15.0f;
+Camera camera(camSpeed);
 
 // Timing
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
 int scale = 4;
+int meshW = 10;
+int meshH = 10;
 
 bool wireframeMode = true;
 
@@ -99,27 +102,17 @@ void setupFramebuffer() {
 }
 
 std::vector<std::vector<float>> getHeightmap(int width, int height, int mesh_width, int mesh_height, int scale) {
-    const int sizes[2] = { width, height };
-    const int mesh_size[2] = { mesh_width, mesh_height };
+    std::array<int,2> size = { width, height };
+    std::array<int, 2> mesh_size = { mesh_width, mesh_height };
 
-    PerlinNoise perlin_noise(sizes, mesh_size);
-    float** rawHeightMap = perlin_noise.getGrid();
-    scaleArray(rawHeightMap, 0, scale, width, height);
-
-    std::vector<std::vector<float>> heightmap(height, std::vector<float>(width));
-
-    for (unsigned int i = 0; i < height; ++i) {
-        for (unsigned int j = 0; j < width; ++j) {
-            heightmap[i][j] = rawHeightMap[i][j];
-        }
-    }
+    PerlinNoise perlin_noise(size, mesh_size);
+    std::vector<std::vector<float>> heightmap = perlin_noise.getGrid();
+    scaleMap(heightmap, 0, scale, width, height);
 
     return heightmap;
 }
 
 void loadHeightmapToBuffer(std::vector<float>& vertices, std::vector<uint32_t>& indices, unsigned int VBO, unsigned int EBO) {
-   
-
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
 
@@ -135,7 +128,6 @@ void loadHeightmapToBuffer(std::vector<float>& vertices, std::vector<uint32_t>& 
 void getVerticesAndIndices(std::vector<std::vector<float>>& heightmap, std::vector<float>& vertices, std::vector<uint32_t>& indices) {
     int mapwidth = heightmap[0].size();
     int mapdepth = heightmap.size();
-    std::cout << mapwidth << " / " << mapdepth << std::endl;
 
     for (int z = 0; z < mapdepth; ++z) {
         for (int x = 0; x < mapwidth; ++x) {
@@ -192,7 +184,6 @@ int main() {
     // Setup Dear ImGui style
     ImGui::StyleColorsDark();
 
-    // Setup Platform/Renderer bindings
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330");
 
@@ -203,12 +194,11 @@ int main() {
 
     // ------------------------------------------------------------------------------------- //
 
-    std::vector<std::vector<float>> heightmap = getHeightmap(100, 100, 10, 10, scale);
+    std::vector<std::vector<float>> heightmap = getHeightmap(100, 100, meshW, meshH, scale);
     std::vector<float> vertices;
     std::vector<uint32_t> indices;
 
     getVerticesAndIndices(heightmap, vertices, indices);
-
 
     unsigned int VBO, VAO, EBO;
     glGenVertexArrays(1, &VAO);
@@ -216,9 +206,7 @@ int main() {
     glGenBuffers(1, &EBO);
 
     glBindVertexArray(VAO);
-
     loadHeightmapToBuffer(vertices, indices, VBO, EBO);
-
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     setupFramebuffer();
@@ -246,7 +234,7 @@ int main() {
         float time = (float)glfwGetTime();
 
         glm::mat4 view = glm::lookAt(camera.Position, camera.Position + camera.Front, camera.Up);
-        glm::mat4 projection = glm::perspective(glm::radians(45.0f), 1920.0f / 1080.0f, 0.1f, 100.0f);
+        glm::mat4 projection = glm::perspective(glm::radians(45.0f), 1920.0f / 1080.0f, 0.1f, 300.0f);
         glm::mat4 model = glm::mat4(1.0f);
 
         unsigned int viewLoc = glGetUniformLocation(myShaders.ID, "view");
@@ -282,8 +270,11 @@ int main() {
             glPolygonMode(GL_FRONT_AND_BACK, wireframeMode ? GL_LINE : GL_FILL);
         }
         ImGui::SliderInt("Scale", &scale, 1, 10);
+        ImGui::SliderInt("Mesh width", &meshW, 3, 50);
+        ImGui::SliderInt("Mesh Height", &meshH, 3, 50);
+
         if (ImGui::Button("Regenerate Terrain")) {
-            heightmap = getHeightmap(100, 100, 10, 10, scale);
+            heightmap = getHeightmap(100, 100, meshW, meshH, scale);
 
             vertices.clear();
             indices.clear();
@@ -302,6 +293,9 @@ int main() {
         ImGui::Begin("Settings 2", nullptr,
             ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
         ImGui::ColorPicker3("Background", color);
+        if (ImGui::SliderFloat("Camera Speed", &camSpeed, 1, 25)) {
+            camera.SetSpeed(camSpeed);
+        }
         ImGui::End();
 
         ImGui::SetNextWindowPos(ImVec2(0.0f, menuHeight), ImGuiCond_Always);

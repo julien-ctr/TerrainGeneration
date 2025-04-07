@@ -14,6 +14,16 @@ Camera::Camera() :
     Sensitivity(0.1f) {
 }
 
+Camera::Camera(float speed) :
+    Position(glm::vec3(0.0f, 0.0f, 3.0f)),
+    Front(glm::vec3(0.0f, 0.0f, -1.0f)),
+    Up(glm::vec3(0.0f, 1.0f, 0.0f)),
+    Pitch(0.0f),
+    Yaw(-90.0f),
+    Speed(speed),
+    Sensitivity(0.1f) {
+}
+
 void Camera::ProcessKeyboard(int key, float deltaTime) {
     float vel = Speed * deltaTime;
     float rotSpeed = 60.0f * deltaTime;
@@ -67,4 +77,8 @@ void Camera::UpdateDirection() {
     direction.y = sin(glm::radians(Pitch));
     direction.z = sin(glm::radians(Yaw)) * cos(glm::radians(Pitch));
     Front = glm::normalize(direction);
+}
+
+void Camera::SetSpeed(float speed) {
+    Speed = speed;
 }
