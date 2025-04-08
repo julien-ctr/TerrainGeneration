@@ -74,3 +74,45 @@ float PerlinNoise::getValue(int x, int y) const {
 const std::vector<std::vector<float>>& PerlinNoise::getGrid() const {
     return noiseGrid;
 }
+
+std::vector<std::vector<float>> octavesHeightmap(
+    std::array<int, 2> gridSize,
+    std::array<int, 2> baseMeshSize,
+    int octaves,
+    float persistence,
+    float lacunarity
+) {
+    std::vector<std::vector<float>> finalHeightmap(gridSize[1], std::vector<float>(gridSize[0], 0.0f));
+    float maxAmplitude = 0.0f;
+
+    float amplitude = 1.0f;
+    float frequency = 1.0f;
+
+    for (int i = 0; i < octaves; ++i) {
+        std::array<int, 2> meshSize = { static_cast<int>(baseMeshSize[0] / frequency), static_cast<int>(baseMeshSize[1] / frequency) };
+
+        if (meshSize[0] == 0) meshSize[0] = 1;
+        if (meshSize[1] == 0) meshSize[1] = 1;
+
+        PerlinNoise perlin(gridSize, meshSize);
+        const std::vector<std::vector<float>> grid = perlin.getGrid();
+
+        for (int y = 0; y < gridSize[1]; ++y) {
+            for (int x = 0; x < gridSize[0]; ++x) {
+                finalHeightmap[y][x] += grid[y][x] * amplitude;
+            }
+        }
+
+        maxAmplitude += amplitude;
+        amplitude *= persistence;
+        frequency *= lacunarity;
+    }
+
+    for (int y = 0; y < gridSize[1]; ++y) {
+        for (int x = 0; x < gridSize[0]; ++x) {
+            finalHeightmap[y][x] /= maxAmplitude;
+        }
+    }
+
+    return finalHeightmap;
+}

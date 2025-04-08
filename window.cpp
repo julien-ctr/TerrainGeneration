@@ -29,6 +29,9 @@ float lastFrame = 0.0f;
 int scale = 4;
 int meshW = 10;
 int meshH = 10;
+int octaves = 3;
+float persistence = .4f;
+float lacunarity = 2.0f;
 
 bool autoReload = false;
 bool wireframeMode = true;
@@ -106,8 +109,7 @@ std::vector<std::vector<float>> getHeightmap(int width, int height, int mesh_wid
     std::array<int,2> size = { width, height };
     std::array<int, 2> mesh_size = { mesh_width, mesh_height };
 
-    PerlinNoise perlin_noise(size, mesh_size);
-    std::vector<std::vector<float>> heightmap = perlin_noise.getGrid();
+    std::vector<std::vector<float>> heightmap = octavesHeightmap(size, mesh_size, octaves, persistence, lacunarity);
     scaleMap(heightmap, 0, scale, width, height);
 
     return heightmap;
@@ -289,6 +291,15 @@ int main() {
             generateTerrain(VAO, VBO, EBO, heightmap, vertices, indices);
         }
         if (ImGui::SliderInt("Mesh Height", &meshH, 3, 50) && autoReload) {
+            generateTerrain(VAO, VBO, EBO, heightmap, vertices, indices);
+        }
+        if (ImGui::SliderInt("Octaves", &octaves, 1, 10) && autoReload) {
+            generateTerrain(VAO, VBO, EBO, heightmap, vertices, indices);
+        }
+        if (ImGui::SliderFloat("Persistence", &persistence, 0.1f, 1.0f) && autoReload) {
+            generateTerrain(VAO, VBO, EBO, heightmap, vertices, indices);
+        }
+        if (ImGui::SliderFloat("LAcunarity", &lacunarity, 1.0f, 5.0f) && autoReload) {
             generateTerrain(VAO, VBO, EBO, heightmap, vertices, indices);
         }
 

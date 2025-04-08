@@ -29,3 +29,11 @@ public:
     float getValue(int x, int y) const;
     const std::vector<std::vector<float>>& getGrid() const;
 };
+
+std::vector<std::vector<float>> octavesHeightmap(
+    std::array<int, 2> gridSize,
+    std::array<int, 2> baseMeshSize,
+    int octaves,
+    float persistence,
+    float lacunarity
+);
