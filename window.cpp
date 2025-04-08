@@ -30,6 +30,7 @@ int scale = 4;
 int meshW = 10;
 int meshH = 10;
 
+bool autoReload = false;
 bool wireframeMode = true;
 
 unsigned int framebuffer, textureColorbuffer, rbo;
@@ -165,7 +166,22 @@ void getVerticesAndIndices(std::vector<std::vector<float>>& heightmap, std::vect
     }
 }
 
+void generateTerrain(unsigned int VAO, unsigned int VBO, unsigned int EBO,
+                    std::vector<std::vector<float>>& heightmap, 
+                    std::vector<float>& vertices, 
+                    std::vector<uint32_t>& indices) {
+    heightmap = getHeightmap(100, 100, meshW, meshH, scale);
 
+    vertices.clear();
+    indices.clear();
+    getVerticesAndIndices(heightmap, vertices, indices);
+
+    glBindVertexArray(VAO);
+
+    loadHeightmapToBuffer(vertices, indices, VBO, EBO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
 
 int main() {
     GLFWwindow* window = initWindow();
@@ -194,20 +210,17 @@ int main() {
 
     // ------------------------------------------------------------------------------------- //
 
-    std::vector<std::vector<float>> heightmap = getHeightmap(100, 100, meshW, meshH, scale);
+    std::vector<std::vector<float>> heightmap;
     std::vector<float> vertices;
     std::vector<uint32_t> indices;
 
-    getVerticesAndIndices(heightmap, vertices, indices);
 
     unsigned int VBO, VAO, EBO;
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
     glGenBuffers(1, &EBO);
 
-    glBindVertexArray(VAO);
-    loadHeightmapToBuffer(vertices, indices, VBO, EBO);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    generateTerrain(VAO, VBO, EBO, heightmap, vertices, indices);
 
     setupFramebuffer();
 
@@ -269,22 +282,21 @@ int main() {
         if (ImGui::Checkbox("Wireframe", &wireframeMode)) {
             glPolygonMode(GL_FRONT_AND_BACK, wireframeMode ? GL_LINE : GL_FILL);
         }
-        ImGui::SliderInt("Scale", &scale, 1, 10);
-        ImGui::SliderInt("Mesh width", &meshW, 3, 50);
-        ImGui::SliderInt("Mesh Height", &meshH, 3, 50);
+        if (ImGui::SliderInt("Scale", &scale, 1, 10) && autoReload) {
+            generateTerrain(VAO, VBO, EBO, heightmap, vertices, indices);
+        }
+        if (ImGui::SliderInt("Mesh width", &meshW, 3, 50) && autoReload) {
+            generateTerrain(VAO, VBO, EBO, heightmap, vertices, indices);
+        }
+        if (ImGui::SliderInt("Mesh Height", &meshH, 3, 50) && autoReload) {
+            generateTerrain(VAO, VBO, EBO, heightmap, vertices, indices);
+        }
 
         if (ImGui::Button("Regenerate Terrain")) {
-            heightmap = getHeightmap(100, 100, meshW, meshH, scale);
-
-            vertices.clear();
-            indices.clear();
-            getVerticesAndIndices(heightmap, vertices, indices);
-
-            glBindVertexArray(VAO);
-
-            loadHeightmapToBuffer(vertices, indices, VBO, EBO);
-
-            glBindBuffer(GL_ARRAY_BUFFER, 0);
+            generateTerrain(VAO, VBO, EBO, heightmap, vertices, indices);
+        }
+        if (ImGui::Checkbox("Auto generate", &autoReload)) {
+            
         }
         ImGui::End();
 
