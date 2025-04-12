@@ -5,9 +5,10 @@
 #include <vector>
 #include "Shaders.hpp"
 #include "textureLoad.hpp"
-#include "perlin.hpp"
-#include "utils.hpp"
 #include "Camera.hpp"
+#include "Parameters.hpp"
+#include "UI.hpp"
+#include "TerrainGenerator.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -17,24 +18,9 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
-
-// Camera
-float camSpeed = 15.0f;
-Camera camera(camSpeed);
-
 // Timing
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
-
-int scale = 4;
-int meshW = 10;
-int meshH = 10;
-int octaves = 3;
-float persistence = .4f;
-float lacunarity = 2.0f;
-
-bool autoReload = false;
-bool wireframeMode = true;
 
 unsigned int framebuffer, textureColorbuffer, rbo;
 
@@ -105,86 +91,6 @@ void setupFramebuffer() {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-std::vector<std::vector<float>> getHeightmap(int width, int height, int mesh_width, int mesh_height, int scale) {
-    std::array<int,2> size = { width, height };
-    std::array<int, 2> mesh_size = { mesh_width, mesh_height };
-
-    std::vector<std::vector<float>> heightmap = octavesHeightmap(size, mesh_size, octaves, persistence, lacunarity);
-    scaleMap(heightmap, 0, scale, width, height);
-
-    return heightmap;
-}
-
-void loadHeightmapToBuffer(std::vector<float>& vertices, std::vector<uint32_t>& indices, unsigned int VBO, unsigned int EBO) {
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(uint32_t), indices.data(), GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-}
-
-void getVerticesAndIndices(std::vector<std::vector<float>>& heightmap, std::vector<float>& vertices, std::vector<uint32_t>& indices) {
-    int mapwidth = heightmap[0].size();
-    int mapdepth = heightmap.size();
-
-    for (int z = 0; z < mapdepth; ++z) {
-        for (int x = 0; x < mapwidth; ++x) {
-            float posX = static_cast<float>(x);
-            float posY = heightmap[z][x];
-            float posZ = static_cast<float>(z);
-
-            float texX = static_cast<float>(x) / (mapwidth - 1);
-            float texY = static_cast<float>(z) / (mapdepth - 1);
-
-            vertices.push_back(posX);
-            vertices.push_back(posY);
-            vertices.push_back(posZ);
-            vertices.push_back(texX);
-            vertices.push_back(texY);
-        }
-    }
-
-    for (unsigned int z = 0; z < mapdepth - 1; ++z) {
-        for (unsigned int x = 0; x < mapwidth - 1; ++x) {
-            unsigned int topLeft = z * mapwidth + x;
-            unsigned int topRight = topLeft + 1;
-            unsigned int bottomLeft = (z + 1) * mapwidth + x;
-            unsigned int bottomRight = bottomLeft + 1;
-
-            if ((x + z) % 2 == 0) {
-                indices.insert(indices.end(), { topLeft, bottomLeft, bottomRight });
-                indices.insert(indices.end(), { topLeft, topRight, bottomRight });
-            }
-            else {
-                indices.insert(indices.end(), { topLeft, topRight, bottomLeft });
-                indices.insert(indices.end(), { topRight, bottomRight, bottomLeft });
-            }
-        }
-    }
-}
-
-void generateTerrain(unsigned int VAO, unsigned int VBO, unsigned int EBO,
-                    std::vector<std::vector<float>>& heightmap, 
-                    std::vector<float>& vertices, 
-                    std::vector<uint32_t>& indices) {
-    heightmap = getHeightmap(100, 100, meshW, meshH, scale);
-
-    vertices.clear();
-    indices.clear();
-    getVerticesAndIndices(heightmap, vertices, indices);
-
-    glBindVertexArray(VAO);
-
-    loadHeightmapToBuffer(vertices, indices, VBO, EBO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-}
-
 int main() {
     GLFWwindow* window = initWindow();
 
@@ -194,16 +100,8 @@ int main() {
         return -1;
     }
 
-    // Initiate ImGui
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-
-    // Setup Dear ImGui style
-    ImGui::StyleColorsDark();
-
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
-    ImGui_ImplOpenGL3_Init("#version 330");
+    UI ui;
+    ui.init(window);
 
     // Build the shader program
     Shaders myShaders("Shaders/vertexShader.vs", "Shaders/fragmentShader.fs");
@@ -212,17 +110,18 @@ int main() {
 
     // ------------------------------------------------------------------------------------- //
 
-    std::vector<std::vector<float>> heightmap;
-    std::vector<float> vertices;
-    std::vector<uint32_t> indices;
-
-
     unsigned int VBO, VAO, EBO;
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
     glGenBuffers(1, &EBO);
 
-    generateTerrain(VAO, VBO, EBO, heightmap, vertices, indices);
+    Parameters parameters;
+
+    // Camera
+    Camera camera(15.0f);
+
+    TerrainGenerator terrainGen;
+    terrainGen.generateTerrain(parameters);
 
     setupFramebuffer();
 
@@ -234,11 +133,6 @@ int main() {
         lastFrame = currentFrame;
 
         processInput(window, camera);
-
-        // Start ImGui frame
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
         
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
         glViewport(0, 0, 1920, 1080);
@@ -262,86 +156,15 @@ int main() {
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 
         glBindVertexArray(VAO);
-        glPolygonMode(GL_FRONT_AND_BACK, wireframeMode ? GL_LINE : GL_FILL);
-        glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
+        terrainGen.loadHeightmapToBuffer(VBO, EBO);
+        glPolygonMode(GL_FRONT_AND_BACK, parameters.wireframeMode ? GL_LINE : GL_FILL);
+        glDrawElements(GL_TRIANGLES, terrainGen.getIndicesSize(), GL_UNSIGNED_INT, 0);
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // ImGui UI
-        float visuRatio = .7f;
-        int windowHeight, windowWidth;
-        glfwGetWindowSize(window, &windowWidth, &windowHeight);
-
-
-        float menuWidth = (1.0f - visuRatio) / 2.0f * 1920;
-        float menuHeight = 1080 * visuRatio;
-        ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2(menuWidth, menuHeight), ImGuiCond_Always);
-        ImGui::Begin("Settings 1", nullptr,
-            ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
-        if (ImGui::Checkbox("Wireframe", &wireframeMode)) {
-            glPolygonMode(GL_FRONT_AND_BACK, wireframeMode ? GL_LINE : GL_FILL);
-        }
-        if (ImGui::SliderInt("Scale", &scale, 1, 10) && autoReload) {
-            generateTerrain(VAO, VBO, EBO, heightmap, vertices, indices);
-        }
-        if (ImGui::SliderInt("Mesh width", &meshW, 3, 50) && autoReload) {
-            generateTerrain(VAO, VBO, EBO, heightmap, vertices, indices);
-        }
-        if (ImGui::SliderInt("Mesh Height", &meshH, 3, 50) && autoReload) {
-            generateTerrain(VAO, VBO, EBO, heightmap, vertices, indices);
-        }
-        if (ImGui::SliderInt("Octaves", &octaves, 1, 10) && autoReload) {
-            generateTerrain(VAO, VBO, EBO, heightmap, vertices, indices);
-        }
-        if (ImGui::SliderFloat("Persistence", &persistence, 0.1f, 1.0f) && autoReload) {
-            generateTerrain(VAO, VBO, EBO, heightmap, vertices, indices);
-        }
-        if (ImGui::SliderFloat("LAcunarity", &lacunarity, 1.0f, 5.0f) && autoReload) {
-            generateTerrain(VAO, VBO, EBO, heightmap, vertices, indices);
-        }
-
-        if (ImGui::Button("Regenerate Terrain")) {
-            generateTerrain(VAO, VBO, EBO, heightmap, vertices, indices);
-        }
-        if (ImGui::Checkbox("Auto generate", &autoReload)) {
-            
-        }
-        ImGui::End();
-
-        ImGui::SetNextWindowPos(ImVec2(menuWidth, 0.0f), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2(menuWidth, menuHeight), ImGuiCond_Always);
-        ImGui::Begin("Settings 2", nullptr,
-            ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
-        ImGui::ColorPicker3("Background", color);
-        if (ImGui::SliderFloat("Camera Speed", &camSpeed, 1, 25)) {
-            camera.SetSpeed(camSpeed);
-        }
-        ImGui::End();
-
-        ImGui::SetNextWindowPos(ImVec2(0.0f, menuHeight), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2(1920, windowHeight * (1.0f - visuRatio)), ImGuiCond_Always);
-        ImGui::Begin("Settings 3", nullptr,
-            ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
-        ImGui::End();
-
-        ImVec2 windowPos(1920 * (1.0f - visuRatio), 0);
-        ImVec2 windowSize(1920 * visuRatio, 1080 * visuRatio);
-
-        ImGui::SetNextWindowPos(windowPos, ImGuiCond_Always);
-        ImGui::SetNextWindowSize(windowSize, ImGuiCond_Always);
-        ImGui::Begin("Rendered map", nullptr,
-            ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
-
-        ImVec2 availableSize = ImGui::GetContentRegionAvail();
-        ImGui::Image((ImTextureID)(intptr_t)textureColorbuffer, availableSize, ImVec2(0, 1), ImVec2(1, 0));
-
-        ImGui::End();
-
-        ImGui::Render();
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        ui.render(parameters, window, camera, textureColorbuffer, terrainGen);
 
         glfwSwapBuffers(window);
         glfwPollEvents();

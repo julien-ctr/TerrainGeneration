@@ -15,6 +15,6 @@ vec3 bottom = vec3(0.0, 0.5, 0.0);
 void main()
 {
     gl_Position = projection * view * model * vec4(aPos.x, aPos.y, aPos.z, 1.0f);
-    outColor = vec4(mix(top, bottom, aPos.y / 2.0), 1.0);
+    outColor = vec4(mix(top, bottom, aPos.y / 25.0), 1.0);
     texCoord = aTexCoord;
 };
