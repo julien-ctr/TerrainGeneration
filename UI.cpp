@@ -15,7 +15,7 @@ void UI::init(GLFWwindow* window) {
     ImGui_ImplOpenGL3_Init("#version 330");
 }
 
-void UI::render(Parameters& parameters, GLFWwindow* window, Camera& camera, unsigned int textureColorbuffer, TerrainGenerator& terrainGen) {
+void UI::render(Parameters& parameters, GLFWwindow* window, Camera& camera, unsigned int textureColorbuffer, TerrainGenerator& terrainGen, Stats& stats) {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
@@ -65,8 +65,10 @@ void UI::render(Parameters& parameters, GLFWwindow* window, Camera& camera, unsi
 
     ImGui::SetNextWindowPos(ImVec2(0.0f, menuHeight), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(1920, windowHeight * (1.0f - visuRatio)), ImGuiCond_Always);
-    ImGui::Begin("Settings 3", nullptr,
+    ImGui::Begin("Statistics", nullptr,
         ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
+    ImGui::Text(("Number of triangles: " + std::to_string(stats.triangleCount)).c_str());
+    ImGui::Text(("FPS: " + std::to_string(stats.fps)).c_str());
     ImGui::End();
 
     ImVec2 windowPos(1920 * (1.0f - visuRatio), 0);

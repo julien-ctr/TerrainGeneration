@@ -15,3 +15,8 @@ struct Parameters {
 
     float camSpeed = 15.0f;
 };
+
+struct Stats {
+    unsigned int triangleCount = 0;
+    unsigned int fps = 0;
+};

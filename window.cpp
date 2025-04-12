@@ -9,6 +9,8 @@
 #include "Parameters.hpp"
 #include "UI.hpp"
 #include "TerrainGenerator.hpp"
+#include "CubeGeometry.hpp"
+#include "Cube.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -123,14 +125,24 @@ int main() {
     TerrainGenerator terrainGen;
     terrainGen.generateTerrain(parameters);
 
+    // Geometry
+    CubeGeometry cubeGeo;
+    Cube::setGeometry(&cubeGeo);
+
+    Cube cube1(0, 5, 0, 10);
+
     setupFramebuffer();
 
     float color[3] = { 0.53f, 0.81f, 0.92f };
+    
 
     while (!glfwWindowShouldClose(window)) {
         float currentFrame = static_cast<float>(glfwGetTime());
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
+
+        Stats stats;
+        stats.fps = 1 / deltaTime;
 
         processInput(window, camera);
         
@@ -155,16 +167,31 @@ int main() {
         unsigned int modelLoc = glGetUniformLocation(myShaders.ID, "model");
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 
+        myShaders.setVec3("viewPos", camera.Position);
+        myShaders.setVec3("lightPos", glm::vec3(50, 50, 50));
+
         glBindVertexArray(VAO);
-        terrainGen.loadHeightmapToBuffer(VBO, EBO);
+        //terrainGen.loadHeightmapToBuffer(VBO, EBO);
         glPolygonMode(GL_FRONT_AND_BACK, parameters.wireframeMode ? GL_LINE : GL_FILL);
-        glDrawElements(GL_TRIANGLES, terrainGen.getIndicesSize(), GL_UNSIGNED_INT, 0);
+        //glDrawElements(GL_TRIANGLES, terrainGen.getIndicesSize(), GL_UNSIGNED_INT, 0);
+
+        std::vector<std::vector<float>>& hmap = terrainGen.getHeightmapData();
+        for (unsigned int z = 0; z < hmap.size(); ++z) {
+            for (unsigned int x = 0; x < hmap[0].size(); ++x) {
+                float cube_y = std::floor(hmap[z][x]);
+                for (unsigned int y = 0; y <= cube_y; ++y) {
+                    Cube cube(x, y, z);
+                    cube.draw(myShaders);
+                    stats.triangleCount += 12;
+                }
+            }
+        }
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        ui.render(parameters, window, camera, textureColorbuffer, terrainGen);
+        ui.render(parameters, window, camera, textureColorbuffer, terrainGen, stats);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
