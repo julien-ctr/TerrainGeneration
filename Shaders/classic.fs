@@ -1,17 +1,18 @@
 #version 330 core
-out vec4 FragColor;
 
 in vec2 texCoord;
 in vec4 outColor;
 in vec3 fragPos;
 in vec3 normal;
 
+out vec4 FragColor;
+
 uniform vec3 lightPos;
 uniform vec3 viewPos;
 
 void main()
 {
-	vec3 norm = normalize(normal);
+    vec3 norm = normalize(normal);
     vec3 lightDir = normalize(lightPos - fragPos);
     vec3 viewDir = normalize(viewPos - fragPos);
 
@@ -29,4 +30,4 @@ void main()
 
     vec3 result = (ambient + diffuse + specular);
     FragColor = vec4(result * outColor.rgb, 1.0);
-};
+}

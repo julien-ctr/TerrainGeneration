@@ -15,7 +15,7 @@ void UI::init(GLFWwindow* window) {
     ImGui_ImplOpenGL3_Init("#version 330");
 }
 
-void UI::render(Parameters& parameters, GLFWwindow* window, Camera& camera, unsigned int textureColorbuffer, TerrainGenerator& terrainGen, Stats& stats) {
+void UI::render(Parameters& parameters, GLFWwindow* window, Camera& camera, unsigned int textureColorbuffer, TerrainManager& terrainGen, Stats& stats) {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
@@ -44,11 +44,11 @@ void UI::render(Parameters& parameters, GLFWwindow* window, Camera& camera, unsi
     if (ImGui::SliderFloat("Lacunarity", &parameters.lacunarity, 1.0f, 5.0f)) needRegen = true;
 
     if (parameters.autoReload && needRegen) {
-        terrainGen.generateTerrain(parameters);
+        terrainGen.generate(parameters);
     }
 
     if (ImGui::Button("Regenerate Terrain")) {
-        terrainGen.generateTerrain(parameters);
+        terrainGen.generate(parameters);
     }
     ImGui::Checkbox("Auto generate", &parameters.autoReload);
     ImGui::End();
@@ -60,6 +60,10 @@ void UI::render(Parameters& parameters, GLFWwindow* window, Camera& camera, unsi
     ImGui::ColorPicker3("Background", parameters.color);
     if (ImGui::SliderFloat("Camera Speed", &parameters.camSpeed, 1, 25)) {
         camera.SetSpeed(parameters.camSpeed);
+    }
+    if (ImGui::Checkbox("Voxel mode", &parameters.voxelMode)) {
+        terrainGen.switchMode();
+        terrainGen.generate(parameters);
     }
     ImGui::End();
 

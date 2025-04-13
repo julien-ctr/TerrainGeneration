@@ -14,6 +14,8 @@ struct Parameters {
     float color[3] = { 0.53f, 0.81f, 0.92f };
 
     float camSpeed = 15.0f;
+
+    bool voxelMode = false;
 };
 
 struct Stats {
